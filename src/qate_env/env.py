@@ -32,18 +32,6 @@ UNKNOWN_GIT_REV = "unknown"
 
 
 def get_git_rev(short_hash_len: int = 7) -> str:
-    """The revision of this package's checkout, recorded in every run log.
-
-    `UNKNOWN_GIT_REV` when there is no checkout to ask -- an install from a wheel
-    has no `.git` -- because the revision is provenance for a result, not
-    something a run depends on. Failing here would make an installed package
-    unable to start an environment at all.
-
-    It reads the directory this file is in, so it is `qate-env`'s revision rather
-    than `qate`'s or the strategy's. That is worth knowing when reading an old run
-    log: these were one repository until the split, and a log from before it
-    records the revision of that one.
-    """
     try:
         full_hash = (
             subprocess.check_output(
@@ -60,14 +48,6 @@ def get_git_rev(short_hash_len: int = 7) -> str:
 
 
 class Env:
-    """A named directory holding one run's configuration, and its lifecycle.
-
-    `work_dir` normally follows from the root and the name. Passing it explicitly
-    separates *where the definition is read from* from *where a run writes*, which
-    is what lets a backtest run against a live environment's config files without
-    taking that environment's lock or writing into its directory.
-    """
-
     def __init__(
         self,
         root_dir: str,
@@ -87,13 +67,6 @@ class Env:
         self.set_logging()
 
     def enter(self, daemon: bool = False):
-        """
-        Enter the environment.
-
-        Args:
-            daemon: If True, this is a long-running daemon process.
-                   On first run, generates start/stop scripts and exits.
-        """
         if daemon:
             self._check_daemon_scripts()
 
@@ -104,10 +77,6 @@ class Env:
         self.unlock()
 
     def _check_daemon_scripts(self):
-        """
-        Check if start/stop scripts exist for this daemon.
-        If not, generate them and exit.
-        """
         # Get the Python file being executed
         py_file = sys.argv[0]
         py_file_abs = os.path.abspath(py_file)
@@ -236,18 +205,6 @@ echo "Warning: Process may still be running"
         self.lock_fd = lock_fd
 
     def unlock(self):
-        """Release the lock and remove the lock file.
-
-        Every caller runs this from a `finally`, usually while shutting down after
-        something else went wrong. So a failure here must not raise: it would
-        replace the exception that caused the shutdown with a complaint about a lock
-        file, and the interesting error would be lost.
-
-        These are dynamic conditions rather than logic bugs -- the file already
-        gone, the descriptor already closed -- which is the case
-        `knowledge/01_philosophy.md` §1.2 says to handle. Handled, and logged; not
-        swallowed silently.
-        """
         if not getattr(self, "lock_fd", None):
             return
 
@@ -289,7 +246,6 @@ echo "Warning: Process may still be running"
         getLogger("httpx").setLevel(WARNING)
 
     def setup(self, forced: bool = False) -> None:
-        """Create the directory. Refuses an existing one unless forced."""
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
         elif not forced:
@@ -302,7 +258,6 @@ echo "Warning: Process may still be running"
         env_name: EnvName,
         objects: dict[str, Any] | None = None,
     ) -> "Env":
-        """Create an environment and write one `<key>.json` per object given."""
         env = cls(root_dir, env_name)
         env.setup()
         for name, obj in (objects or {}).items():

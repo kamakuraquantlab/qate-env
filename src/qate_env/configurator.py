@@ -1,15 +1,3 @@
-"""An environment's markets and venues, wired into a runtime.
-
-This is where a configuration becomes objects that can connect. It asks `qate`'s
-registry for whatever adapter is installed, so it names no venue itself -- and it
-reaches `sys_env` for credentials, which is why it lives here rather than in the
-public library: the one package that knows where the keys are is the one that
-should be allowed to hand them to a gateway.
-
-Without an adapter installed there is nothing for it to build, and with
-`GatewayName.SIMULATOR` it builds nothing that could reach one.
-"""
-
 from dataclasses import dataclass
 from logging import getLogger
 
@@ -43,12 +31,6 @@ class ExchangeComponents:
 
 
 class Configurator:
-    """Wires an environment's markets and venues into a runtime.
-
-    `gateway_name` is the runner's decision, not the environment's: a live runner
-    passes PROD, a paper or replay runner leaves it as SIMULATOR.
-    """
-
     def __init__(
         self,
         config: StrategyConfig,

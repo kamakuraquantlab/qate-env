@@ -1,13 +1,3 @@
-"""What an environment says about a run, loaded from its files.
-
-The classes an environment's JSON deserializes into, and the one function that
-reads the lot. `Env` is the directory; this is what is written in it.
-
-The strategy's own `Config` class is the one thing that cannot be known in
-advance, and it is resolved from the strategy module rather than named in an
-index -- see `resolve_config_class`.
-"""
-
 import importlib
 from dataclasses import dataclass, field
 from logging import getLogger
@@ -32,26 +22,10 @@ FEATURES_FILE = "features.json"
 
 @dataclass
 class TradingProfile:
-    """Which strategy an environment runs, and under which credentials.
-
-    Deliberately not which *gateway*. That is a property of the process doing the
-    running -- a live runner trades, a backtest simulates -- not of the environment,
-    and a field that half the readers ignored was a field that went stale: a
-    collector env claiming SIMULATOR, a backtest env claiming anything at all.
-    `Configurator` takes it as an argument instead.
-    """
-
     strategy_module_name: str | None = None
     variant: str = "v0"
     trading_config_key: str = "DEFAULT"
     reporter_config_key: str | None = None
-    """Which credentials a `Reporter` should be built from, if any.
-
-    Named after `Reporter`, not after Discord or chat. The field was
-    `chat_config_key` when the only destination was a chat bot; the destination is
-    now whatever the runner decides to add, and a name that says "chat" would send
-    every reader looking for a chat interface that no longer exists.
-    """
 
     @property
     def strategy_name(self):
@@ -60,15 +34,6 @@ class TradingProfile:
 
 @dataclass
 class TradingEnv:
-    """Everything an environment says about a run, loaded.
-
-    Loaded by convention rather than through `desc.json`'s module map. The map
-    named a class per file, which bought nothing -- every reader already knows it
-    wants a `TradingProfile` and a dict -- and cost a file that goes stale when
-    code moves. The one genuinely unknown class, the strategy's `Config`, is
-    resolved from the strategy module, which `trading.json` already names.
-    """
-
     profile: TradingProfile
     config: StrategyConfig
     params: dict = field(default_factory=dict)
@@ -77,12 +42,6 @@ class TradingEnv:
 
 
 def resolve_config_class(strategy_module_name: str) -> Type[StrategyConfig]:
-    """A strategy's `Config`, by the convention every strategy already follows.
-
-    `<strategy_module>.config.Config`, which is what qate's
-    `knowledge/03_writing_strategy.md` documents and what an environment's
-    `config.json` deserializes into.
-    """
     module_name = f"{strategy_module_name}.{CONFIG_MODULE}"
     try:
         module = importlib.import_module(module_name)
@@ -97,18 +56,11 @@ def resolve_config_class(strategy_module_name: str) -> Type[StrategyConfig]:
 
 
 def get_strategy_class(module_name: str, variant_name: str) -> Type[Strategy]:
-    """A strategy's `Variant`, by the same convention `resolve_config_class` uses.
-
-    One class per variant file, named `Variant`. Both halves of a strategy are
-    found by name rather than registered, which is what lets `trading.json` name a
-    strategy this package has never heard of.
-    """
     module = importlib.import_module(module_name + "." + variant_name)
     return module.Variant
 
 
 def load_trading_env(env: Env) -> TradingEnv:
-    """Read an environment's configuration files. Nothing is entered or locked."""
     profile: TradingProfile = env.load_object(TRADING_FILE, TradingProfile)
     if profile is None:
         raise RuntimeError(f"No {TRADING_FILE} in {env.work_dir}")

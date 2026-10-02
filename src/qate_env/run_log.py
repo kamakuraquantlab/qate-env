@@ -1,16 +1,3 @@
-"""What a run recorded about itself: provenance for a number.
-
-A run log answers "what produced this figure" -- which environment, which library
-revision, which configuration, which parameters -- so a result in a notebook or an
-article can be traced back and re-run.
-
-It is *given* what it records. It used to read `env.get("config")`, which only
-returned anything after `Env.load()` had walked `desc.json`'s module map, so a
-caller that loaded its configuration any other way silently logged
-`"config": null`. The provenance of a number is not a good place for a silent
-null: whatever loaded the configuration passes it in.
-"""
-
 import json
 import os
 import time

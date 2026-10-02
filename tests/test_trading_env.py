@@ -29,7 +29,7 @@ from qate_env.trading_env import (
 
 STRATEGY_MODULE = "fake_strategy"
 
-CONFIG_PY = '''
+CONFIG_PY = """
 from dataclasses import dataclass
 
 from qate.core.ev_type import EventType
@@ -46,7 +46,7 @@ class Config(StrategyConfig):
 
     def get_markets(self) -> list[tuple[Market, list[str]]]:
         return [(Market(ExchangeName.GMO, Symbol.BTC_SPOT), [EventType.MARKET_ORDER_BOOK])]
-'''
+"""
 
 V1_PY = """
 from qate.trading.strategy import Strategy
