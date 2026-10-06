@@ -55,6 +55,22 @@ def get_secret_dir() -> Path:
     return DEFAULT_SECRET_DIR
 
 
+def read_keys(service_name: str, section: str, *fields: str) -> tuple[str, ...]:
+    """Named fields from one section of `<secret dir>/<service>.keys`.
+
+    The general form, so a caller that needs a credential this module has no
+    opinion about does not have to reimplement the reading. `get_api_keys` and
+    `get_influxdb` below are the two shapes a deployment of the framework does
+    have an opinion about; everything else -- Discord, S3, whatever a host
+    happens to need -- is the caller's to name and this function's to read.
+
+    Exposed because the alternative was happening: K2 carried a private copy of
+    the body below to read its Discord credential, and a second reader of one
+    file format eventually disagrees about a section name or a missing field.
+    """
+    return _read_keys(service_name, section, *fields)
+
+
 def _read_keys(service_name: str, section: str, *fields: str) -> tuple[str, ...]:
     path = get_secret_dir() / f"{service_name.lower()}.keys"
     config = configparser.ConfigParser()

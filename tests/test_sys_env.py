@@ -78,3 +78,40 @@ def test_a_section_missing_a_field_is_refused(secret_dir):
 
     with pytest.raises(CredentialsNotFound):
         sys_env.get_api_keys("GMO")
+
+
+# ---- read_keys, the general form ---------------------------------------
+
+
+def test_read_keys_returns_the_named_fields(tmp_path, monkeypatch):
+    """Exposed so a caller needing a credential this module has no opinion
+    about does not reimplement the reading. K2 carried a copy of it for its
+    Discord credential, and two readers of one format eventually disagree."""
+    monkeypatch.setenv(sys_env.SECRET_DIR_VAR, str(tmp_path))
+    (tmp_path / "discord.keys").write_text(
+        "[DEFAULT]\nTOKEN = t0ken\nCHANNEL_ID = 1\nERRORS_CHANNEL_ID = 2\n"
+    )
+
+    assert sys_env.read_keys(
+        "discord", "DEFAULT", "TOKEN", "CHANNEL_ID", "ERRORS_CHANNEL_ID"
+    ) == ("t0ken", "1", "2")
+
+
+def test_read_keys_raises_with_the_path_when_a_field_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv(sys_env.SECRET_DIR_VAR, str(tmp_path))
+    (tmp_path / "discord.keys").write_text("[DEFAULT]\nTOKEN = t0ken\n")
+
+    with pytest.raises(sys_env.CredentialsNotFound) as caught:
+        sys_env.read_keys("discord", "DEFAULT", "TOKEN", "CHANNEL_ID")
+    assert "discord.keys" in str(caught.value)
+
+
+def test_read_keys_and_get_api_keys_read_the_same_file(tmp_path, monkeypatch):
+    """`get_api_keys` is `read_keys` with the two fields a deployment of the
+    framework has an opinion about, so they must not diverge."""
+    monkeypatch.setenv(sys_env.SECRET_DIR_VAR, str(tmp_path))
+    (tmp_path / "aws-s3.keys").write_text("[DEFAULT]\nAPI_KEY = k\nSECRET = s\n")
+
+    assert sys_env.get_api_keys("aws-s3") == sys_env.read_keys(
+        "aws-s3", "DEFAULT", "API_KEY", "SECRET"
+    )
