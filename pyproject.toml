@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kamakuraquantlab-qate-env"
-version = "0.1.0"
+version = "0.2.0"
 description = "Trading environments for qate: a run's directory, its configuration, and the machine around it"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,7 +35,7 @@ classifiers = [
 # qate's dependency until this package took the one module that used it.
 dependencies = [
     "dacite>=1.9",
-    "kamakuraquantlab-qate>=0.1",
+    "kamakuraquantlab-qate>=0.2",
 ]
 
 [project.optional-dependencies]
