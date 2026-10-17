@@ -14,7 +14,7 @@ every change is:
 | Adding | Goes in | Not in |
 |---|---|---|
 | Anything that names a path, a host, or a credential | here | `qate` |
-| A file an environment can contain | `trading_env.py` | |
+| A generic environment directory operation | `env.py` | |
 | A way of turning configuration into live objects | `configurator.py` | |
 | Anything a strategy's own code calls | `qate.trading` | here |
 | A generic indicator, chart, gateway or risk rule | `qate` | here |
@@ -52,10 +52,9 @@ deployment. A circular import would be the symptom; the real loss would be that
 - **`get_git_rev()` reads the directory `env.py` is in**, so a run log records
   *this* package's revision, not `qate`'s and not the strategy's. Logs written
   before the split record the revision of the one repository there was.
-- **`GatewayName` is not a field in `trading.json`.** Whether a run reaches a venue
-  is a property of the process doing the running, and it was an environment field
-  once: collector envs claimed SIMULATOR, backtest envs claimed anything at all,
-  and nothing kept any of it true. The runner passes it.
+- **Gateway mode belongs to the runner.** The runner constructs a validated
+  `GatewayConfig`; qate-env does not know whether it came from `k2.json` or any
+  other file.
 - **A strategy's two halves are found by name, not registered.** `Config` from
   `<module>.config.Config`, `Variant` from `<module>.<variant>.Variant`. There was
   an index (`desc.json`) and it went stale whenever code moved. Do not reintroduce
@@ -65,12 +64,9 @@ deployment. A circular import would be the symptom; the real loss would be that
 
 ## Who depends on this
 
-Enoshima (public) and the live runner (private) — and a change here reaches a host
-on its next release, so prefer adding a field with a default over changing the
-meaning of one. `dacite` ignores unknown fields in an environment's JSON, which
-means a renamed field does not fail loudly: it loads as the default and the run
-behaves differently. That has happened once already, with `chat_config_key` →
-`reporter_config_key`.
+Enoshima (public) and the live runner (private). Enoshima uses the environment
+directory lifecycle and the strategy class-resolution convention; the live
+runner additionally uses credentials and `Configurator`.
 
 ## Before publishing
 

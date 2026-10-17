@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from logging import getLogger
 
 from qate.core.conn import PrivateConnection, PublicConnection
@@ -8,17 +9,28 @@ from qate.core.model import ExchangeName
 from qate.exchange import factory, registry
 from qate.trading.config import StrategyConfig
 from qate.trading.gateways import SimulatorGateway
-from qate.trading.runtime import Runtime
 
 from . import sys_env
-from .trading_env import TradingProfile
 
 LOG = getLogger(__name__)
 
 
-class GatewayName:
+class GatewayMode(Enum):
     PROD = "PROD"
     SIMULATOR = "SIMULATOR"
+    NONE = "NONE"
+
+
+@dataclass(frozen=True)
+class GatewayConfig:
+    mode: GatewayMode
+    config_key: str | None = None
+
+    def __post_init__(self):
+        if self.mode is GatewayMode.PROD and not self.config_key:
+            raise ValueError("A production gateway requires config_key")
+        if self.mode is not GatewayMode.PROD and self.config_key is not None:
+            raise ValueError(f"{self.mode.value} gateway mode cannot have config_key")
 
 
 @dataclass
@@ -34,15 +46,15 @@ class Configurator:
     def __init__(
         self,
         config: StrategyConfig,
-        profile: TradingProfile,
-        gateway_name: str = GatewayName.SIMULATOR,
+        gateway_config: GatewayConfig,
     ):
-        self.gateway_name = gateway_name
+        self.gateway_config = gateway_config
         self.exchanges: dict[ExchangeName, ExchangeComponents] = {}
         for market, event_type_list in config.get_markets():
             self.setup_market_data(market, event_type_list)
-        for exchange_name in config.get_exchanges():
-            self.setup_gateway(exchange_name, profile)
+        if self.gateway_config.mode is not GatewayMode.NONE:
+            for exchange_name in config.get_exchanges():
+                self.setup_gateway(exchange_name)
 
     def setup_market_data(self, market, event_type_list):
         exchange_name = market.exchange_name
@@ -57,16 +69,16 @@ class Configurator:
         for event_type in event_type_list:
             components.market_feed.register_symbol_event(market.symbol, event_type)
 
-    def setup_gateway(self, exchange_name: ExchangeName, profile: TradingProfile):
+    def setup_gateway(self, exchange_name: ExchangeName):
         components = self.exchanges.get(exchange_name)
 
-        if self.gateway_name != GatewayName.PROD:
+        if self.gateway_config.mode is GatewayMode.SIMULATOR:
             gateway = SimulatorGateway(exchange_name)
             gateway.subscribe_market_data_feed(components.market_feed)
             components.gateway = gateway
             return
 
-        (api_key, secret) = sys_env.get_api_keys(exchange_name.name, profile.trading_config_key)
+        (api_key, secret) = sys_env.get_api_keys(exchange_name.name, self.gateway_config.config_key)
         gateway = factory.create_exchange_gateway(exchange_name, api_key, secret)
 
         # Whether a venue has an account feed is the adapter's own answer.
@@ -81,7 +93,7 @@ class Configurator:
             gateway.subscribe_exchange_feed(components.exchange_feed)
         components.gateway = gateway
 
-    def configure(self, runtime: Runtime):
+    def configure(self, runtime):
         for components in self.exchanges.values():
             if components.public_conn:
                 runtime.add_conn(components.public_conn)

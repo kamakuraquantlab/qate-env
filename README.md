@@ -1,8 +1,8 @@
 # qate-env
 
-Trading environments for [qate](https://github.com/kamakuraquantlab/qate): where a
-run is defined, which machine it is on, whose credentials it uses, and what it
-recorded about itself.
+Environment directories and gateway construction for
+[qate](https://github.com/kamakuraquantlab/qate): which machine a run is on,
+whose credentials a live gateway uses, and what a run recorded about itself.
 
 `qate` is a library. It knows what an order book is, how a strategy is called, and
 how an order is filled — and nothing at all about directories, hosts or keys. That
@@ -16,40 +16,35 @@ pip install kamakuraquantlab-qate-env
 
 ## An environment is a directory
 
-One directory per named environment, under `~/env` by default:
+One directory per named environment, under `~/env` by default. The application
+owns the files inside it. For example, K2 owns `k2.json` and its strategy files;
+Enoshima owns `enoshima.json` and its strategy parameter grid.
 
 ```
 ~/env/MY_LIVE_RUN/
-  trading.json       # which strategy module and variant, and which key set
-  config.json        # the strategy's Config
-  params.json        # the parameters this run uses
-  param_grid.json    # a search space, for an optimize sweep. Optional
-  features.json      # feature flags. Optional
+  strategy_config.json
+  k2.json or enoshima.json
+  ...                # other application-owned files
   .lock              # PID lock: one process per environment
   env.log            # rotating log
 ```
 
-There is no index file naming what loads what. Each `<key>.json` is read by
-whatever wants it, and the one class that cannot be known in advance — the
-strategy's own `Config` — is resolved from the strategy module that `trading.json`
-already names. See [knowledge/01_env.md](knowledge/01_env.md) for why there used
-to be one and why it went.
+There is no universal trading-environment schema here. Each application loads
+its own definition. The shared convention is only how a strategy class is found:
+`Config` from `<module>.config` and `Variant` from `<module>.<variant>`.
 
 ```python
 from qate_env import sys_env
 from qate_env.env import Env
 from qate_env.env_name import EnvName
-from qate_env.trading_env import get_strategy_class, load_trading_env
+from qate_env.trading_env import get_strategy_class, resolve_config_class
 
 env = Env(sys_env.get_env_root_dir(), EnvName("MY_LIVE_RUN"))
 env.enter()                                   # chdir, log to env.log, take the lock
 
-definition = load_trading_env(env)            # profile, config, params, grid, features
-StrategyClass = get_strategy_class(
-    definition.profile.strategy_module_name,
-    definition.profile.variant,
-)
-strategy = StrategyClass(definition.config, definition.params)
+ConfigClass = resolve_config_class("my_strategy")
+StrategyClass = get_strategy_class("my_strategy", "v1")
+# The application loads its JSON into ConfigClass and supplies its own params.
 ```
 
 ## Layout
@@ -59,8 +54,8 @@ strategy = StrategyClass(definition.config, definition.params)
 | `qate_env.env` | `Env`: the directory and its lifecycle — load, chdir, lock, log |
 | `qate_env.env_name` | `EnvName`: a validated uppercase name, and a real `str` |
 | `qate_env.sys_env` | The machine: where environments live, which credentials exist |
-| `qate_env.trading_env` | `TradingProfile`, `TradingEnv`, `load_trading_env`, and the two by-convention class lookups |
-| `qate_env.configurator` | An environment's markets and venues, wired into a `qate.trading.runtime.Runtime` |
+| `qate_env.trading_env` | The two by-convention strategy class lookups |
+| `qate_env.configurator` | A strategy config's markets and venues, wired into a qate runtime |
 | `qate_env.run_log` | `RunLog`: what a run recorded about itself |
 
 ## Wiring a live run
@@ -70,17 +65,18 @@ strategy = StrategyClass(definition.config, definition.params)
 
 ```python
 from qate.trading.runtime import Runtime
-from qate_env.configurator import Configurator, GatewayName
+from qate_env.configurator import Configurator, GatewayConfig, GatewayMode
 
 runtime = Runtime(strategy)
-Configurator(config, profile, gateway_name=GatewayName.PROD).configure(runtime)
+gateway = GatewayConfig(GatewayMode.PROD, config_key="DEFAULT")
+Configurator(config, gateway).configure(runtime)
 runtime.start()
 ```
 
-`GatewayName` is the *runner's* decision, not the environment's — a live runner
-passes `PROD`, a paper or replay runner leaves it at `SIMULATOR`. It is not a field
-in `trading.json`, because a field half its readers ignored was a field that went
-stale.
+`GatewayConfig` is constructed by the runner. qate-env does not know which
+application file supplied its mode or credential key. `PROD` requires a key;
+`SIMULATOR` builds simulated execution; `NONE` configures market data without an
+execution gateway. The latter two forbid a credential key.
 
 ## Settings
 
@@ -126,8 +122,8 @@ had run, so a caller that loaded its configuration any other way silently logged
 
 | | |
 |---|---|
-| [Enoshima](https://github.com/kamakuraquantlab/Enoshima) | Backtests an environment's definition without taking its lock |
-| A live runner | Reads the same environment, passes `GatewayName.PROD`, and trades it |
+| [Enoshima](https://github.com/kamakuraquantlab/Enoshima) | Uses the directory lifecycle and class-resolution convention |
+| A live runner | Builds a `GatewayConfig`, resolves credentials, and trades |
 
 `qate` itself does not, and that is the point of the split.
 
