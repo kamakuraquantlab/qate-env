@@ -23,6 +23,7 @@ Enoshima owns `enoshima.json` and its strategy parameter grid.
 ```
 ~/env/MY_LIVE_RUN/
   strategy_config.json
+  features.json        # optional list of enabled feature names
   k2.json or enoshima.json
   ...                # other application-owned files
   .lock              # PID lock: one process per environment
@@ -32,6 +33,13 @@ Enoshima owns `enoshima.json` and its strategy parameter grid.
 There is no universal trading-environment schema here. Each application loads
 its own definition. The shared convention is only how a strategy class is found:
 `Config` from `<module>.config` and `Variant` from `<module>.<variant>`.
+
+`features.json` is an optional JSON array. Every name present is enabled for the
+life of the process; absent names are disabled:
+
+```json
+["USE_GMO_ASYNC"]
+```
 
 ```python
 from qate_env import sys_env

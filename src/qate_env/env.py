@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import dacite
+from qate.core import features
 from qate.core.model import ExchangeName, Market, SettleType, Side, Symbol
 from qate.util.encoder import Encoder
 
@@ -27,6 +28,7 @@ ENUM_TYPE_HOOKS = {
 
 
 LOCK_FILE = ".lock"
+FEATURES_FILE_NAME = "features.json"
 
 UNKNOWN_GIT_REV = "unknown"
 
@@ -71,6 +73,7 @@ class Env:
             self._check_daemon_scripts()
 
         self.visit()
+        features.load_from_list(self.load_object(FEATURES_FILE_NAME))
         self.lock()
 
     def leave(self):
