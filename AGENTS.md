@@ -18,7 +18,7 @@ every change is:
 | A way of turning configuration into live objects | `configurator.py` | |
 | Anything a strategy's own code calls | `qate.trading` | here |
 | A generic indicator, chart, gateway or risk rule | `qate` | here |
-| A venue, or anything venue-specific | `qate-exchanges` | here |
+| A venue, or anything venue-specific | `k2-exchanges` | here |
 | A way of reading recorded market data | the replayer (Enoshima) | here |
 
 **`qate` must never import this package.** The dependency runs one way, and it is
